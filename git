@@ -1,0 +1,49 @@
+#!/bin/bash
+set -e
+git=git.bin
+posarg(){
+  local n=$1
+  shift
+  local n i
+  for i in "$@"; do
+    case "$i" in
+      -*) shift ;;
+      *)
+        n=$((n-1))
+        if [ "$n" -le 0 ]; then
+          echo "$i"
+          break
+        fi
+        ;;
+    esac
+  done
+}
+
+unlock_repo(){
+  if [ -d .git-crypt/keys ]; then
+    local findargs="( $(gpg --list-secret-keys --with-colons| awk -F: '$1 == "sec" {print "-name *" $5 ".gpg"}' | sed -z 's/\n-/ -o -/g' ) )"
+    [ -n "$findargs" ] || return 0
+    if find .git-crypt/keys $findargs | grep -q "."; then
+      git-crypt unlock
+    fi
+  fi
+}
+
+case "$1" in
+  clone)
+    shift
+    repo=$(posarg 1 "$@")
+    dir=$(posarg 2 "$@")
+    dir=${dir:-$(basename "$repo")}
+    $git clone "$@"
+    cd "$dir"
+    unlock_repo
+    ;;
+  fetch|pull)
+    $git $1
+    unlock_repo
+    ;;
+  *)
+    $git "$@"
+    ;;
+esac
