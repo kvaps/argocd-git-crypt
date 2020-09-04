@@ -2,6 +2,8 @@ spec:
   template:
     spec:
       volumes:
+      - name: custom-tools
+        emptyDir: {}
       - name: gpg-secrets
         secret:
           secretName: argocd-gpg-secrets
@@ -9,6 +11,13 @@ spec:
         emptyDir: {}
       - name: tmp
         emptyDir: {}
+      initContainers:
+      - name: download-tools
+        image: kvaps/git-crypt-daemon:5
+        command: [ '/bin/sh', '-c', 'cp -v /usr/bin/git-crypt /custom-tools/git-crypt' ]
+        volumeMounts:
+        - mountPath: /custom-tools
+          name: custom-tools
       containers:
       - name: argocd-repo-server
         volumeMounts:
@@ -16,8 +25,11 @@ spec:
           name: tmp
         - mountPath: /home/argocd/.gnupg
           name: gpg-workdir
+        - mountPath: /usr/bin/git-crypt
+          name: custom-tools
+          subPath: git-crypt
       - name: git-crypt
-        image: kvaps/git-crypt-daemon:3
+        image: kvaps/git-crypt-daemon:5
         args:
         - /secrets
         - /tmp

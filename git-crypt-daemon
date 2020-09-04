@@ -41,7 +41,7 @@ shift
 
 echo "starting main loop for $@"
 walk_dir "$@" | while read file dir; do
-  [ "$file" == "index" ] || continue
+  [ "$file" = "index" ] || continue
   echo "found $dir"
   git_dir=$(dirname $dir)
   unlock_repo "$git_dir"
