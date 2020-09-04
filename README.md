@@ -9,3 +9,7 @@ gpg --import 1.key
 
 
 gpg --edit-key 8CB8B24F50B4797D
+
+
+kubectl create secret generic argocd-gpg-secrets --from-file argo.key
+kubectl patch  deploy/argocd-repo-server -p "$(cat deploy.yaml)"

@@ -1,0 +1,30 @@
+spec:
+  template:
+    spec:
+      volumes:
+      - name: gpg-secrets
+        secret:
+          secretName: argocd-gpg-secrets
+      - name: gpg-workdir
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      containers:
+      - name: argocd-repo-server
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /home/argocd/.gnupg
+          name: gpg-workdir
+      - name: git-crypt
+        image: kvaps/git-crypt-daemon:3
+        args:
+        - /secrets
+        - /tmp
+        volumeMounts:
+        - mountPath: /secrets
+          name: gpg-secrets
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /home/argocd/.gnupg
+          name: gpg-workdir
