@@ -32,9 +32,9 @@ Update your deploy/argocd-repo-server
    gpg: WARNING: unsafe ownership on homedir '/home/argocd/.gnupg'
    gpg: keybox '/home/argocd/.gnupg/pubring.kbx' created
    gpg: /home/argocd/.gnupg/trustdb.gpg: trustdb created
-   gpg: key B49D6D5A0D55FF9D marked as ultimately trusted
+   gpg: key 8CB8B24F50B4797D marked as ultimately trusted
    gpg: directory '/home/argocd/.gnupg/openpgp-revocs.d' created
-   gpg: revocation certificate stored as '/home/argocd/.gnupg/openpgp-revocs.d/2E6D458745B33DDC6EB0D452B49D6D5A0D55FF9D.rev'
+   gpg: revocation certificate stored as '/home/argocd/.gnupg/openpgp-revocs.d/9A1FF8CAA917CE876E2562FC8CB8B24F50B4797D.rev'
    ```
        
    Save the key name from the output
@@ -49,42 +49,100 @@ Update your deploy/argocd-repo-server
    /home/argocd/.gnupg/pubring.kbx
    -------------------------------
    pub   rsa3072 2020-09-04 [SC]
-         2E6D458745B33DDC6EB0D452B49D6D5A0D55FF9D
+         9A1FF8CAA917CE876E2562FC8CB8B24F50B4797D
    uid           [ultimate] YOUR NAME <YOUR EMAIL@example.com>
    sub   rsa3072 2020-09-04 [E]
 
-   $ gpg --armor --export-secret-keys B49D6D5A0D55FF9D | base64 -w0; echo
+   $ gpg --armor --export-secret-keys 8CB8B24F50B4797D
    ```
    
-   Save the output base64 string
+   Save the key output
 
-3. Add key to configmap:
+3. Add key to argocd-gpg-keys-cm configmap:
 
-   ```console
+   ```yaml
    $ kubectl -n argocd edit cm argocd-gpg-keys-cm
    apiVersion: v1
    data:
-     B49D6D5A0D55FF9D: |-
-     -----BEGIN PGP PRIVATE KEY BLOCK-----
-     
-     lQVYBF9SujoBDADTz3Qi8XuEXVIxx5uJyutyFLQw6XSG0dSL379cnb9A6oM59l2a
-     RJl7WBxxDFNnj7K3r/4I9KFxTrTp8P+q5BVUZikoogw8mEgwK+7krynrY6a2/Tda
-     Hn8ZTpZ0aKeqew+hRH/R5GWePDrhaBQp1IYAdq8OQbwzNsoeR6iS6m8rl++q7BKN
-     ...
+     8CB8B24F50B4797D: |-
+       -----BEGIN PGP PRIVATE KEY BLOCK-----
+       
+       lQVYBF9Q8KUBDACuS4p0ctXoakPLqE99YLmdixfF/QIvXVIG5uBXClWhWMuo+D0c
+       ZfeyC5GvH7XPUKz1cLMqL6o/u9oHJVUmrvN/g2Mnm365nTGw1M56AfATS9IBp0HH
+       O/fbfiH6aMWmPrW8XIA0icoOAdP+bPcBqM4HRo4ssbRS9y/i
+       =yj11
+       -----END PGP PRIVATE KEY BLOCK-----
    ```
+   *Alternative, but more **secure way**, might be to create the secret*:
+   
+   ```yaml
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: argocd-gpg-keys-secret
+     namespace: argocd
+   stringData:
+     8CB8B24F50B4797D: |-
+       -----BEGIN PGP PRIVATE KEY BLOCK-----
+       
+       lQVYBF9Q8KUBDACuS4p0ctXoakPLqE99YLmdixfF/QIvXVIG5uBXClWhWMuo+D0c
+       ZfeyC5GvH7XPUKz1cLMqL6o/u9oHJVUmrvN/g2Mnm365nTGw1M56AfATS9IBp0HH
+       O/fbfiH6aMWmPrW8XIA0icoOAdP+bPcBqM4HRo4ssbRS9y/i
+       =yj11
+       -----END PGP PRIVATE KEY BLOCK-----
+   ```
+   and modify the gpg-keys volume in argocd-repo-server deployment to have them projected:
+
+   ```yaml
+   $ kubectl edit deploy/argocd-repo-server
+   spec:
+     template:
+       spec:
+         volumes:
+         - name: gpg-keys
+           projected:
+             defaultMode: 420
+             sources:
+             - secret:
+                 name: argocd-gpg-keys-secret
+             - configMap:
+                 name: argocd-gpg-keys-cm
+   ```
+
+
+4. Verify the Installation:
+   
+   After setting the key it should apears in argo key storage, you can check this simple:
+
+   ```console
+   $ kubectl exec -ti deploy/argocd-repo-server -- bash
+   $ GNUPGHOME=/app/config/gpg/keys gpg --list-secret-keys
+   gpg: WARNING: unsafe ownership on homedir '/app/config/gpg/keys'
+   /app/config/gpg/keys/pubring.kbx
+   --------------------------------
+   sec   rsa2048 2020-09-05 [SC] [expires: 2021-03-04]
+         ED6285A3B1A50B6F1D9C955E5E8B1B16D47FFC28
+   uid           [ultimate] Anon Ymous (ArgoCD key signing key) <noreply@argoproj.io>
+   
+   sec   rsa3072 2020-09-03 [SC]
+         9A1FF8CAA917CE876E2562FC8CB8B24F50B4797D
+   uid           [ultimate] YOUR NAME <YOUR EMAIL@example.com>
+   ssb   rsa3072 2020-09-03 [E]
+   ```
+
 
 ### Usage:
 
 1. Import the key:
 
     ```console
-    $ gpg --import B49D6D5A0D55FF9D.key
+    $ gpg --import 8CB8B24F50B4797D.key
     ```
 
 2. Trust the key:
 
     ```console
-    $ gpg --edit-key B49D6D5A0D55FF9D
+    $ gpg --edit-key 8CB8B24F50B4797D
     trust
     5
     ```
@@ -92,5 +150,5 @@ Update your deploy/argocd-repo-server
 3. Add argo as collaborator to your git project:
 
     ```console
-    $ git-crypt add-gpg-user B49D6D5A0D55FF9D
+    $ git-crypt add-gpg-user 8CB8B24F50B4797D
     ```
