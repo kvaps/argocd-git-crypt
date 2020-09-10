@@ -3,7 +3,7 @@ FROM argoproj/argocd:v1.7.3
 USER root
 
 RUN apt-get update \
- && apt-get install -y git-crypt inotify-tools gnupg \
+ && apt-get install -y git-crypt \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
